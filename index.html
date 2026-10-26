@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bog'cha Ovqatlanish Hisoboti</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', Tahoma, sans-serif;
+    background: #f0f2f5; color: #333; padding: 20px;
+  }
+  .container { max-width: 1200px; margin: 0 auto; }
+  h1 { text-align: center; color: #2c3e50; margin-bottom: 20px; font-size: 24px; }
+  h2 { font-size: 18px; margin: 15px 0 10px; color: #2c3e50; }
+  .tabs { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+  .tab {
+    flex: 1; min-width: 150px; padding: 12px; text-align: center; cursor: pointer;
+    background: #fff; border: 2px solid #ddd; border-radius: 8px;
+    font-weight: 600; transition: all 0.2s;
+  }
+  .tab.active { background: #3498db; color: #fff; border-color: #3498db; }
+  .panel { display: none; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+  .panel.active { display: block; }
+  .form-row { display: flex; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; align-items: center; }
+  .form-row input, .form-row select {
+    padding: 10px; border: 1px solid #ccc; border-radius: 6px;
+    font-size: 14px; min-width: 120px;
+  }
+  .form-row label { font-weight: 600; font-size: 14px; }
+  button {
+    padding: 10px 18px; background: #27ae60; color: #fff; border: none;
+    border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 14px;
+    transition: background 0.2s;
+  }
+  button:hover { background: #219150; }
+  button.danger { background: #e74c3c; }
+  button.danger:hover { background: #c0392b; }
+  button.secondary { background: #7f8c8d; }
+  button.secondary:hover { background: #6c7a7b; }
+  button.blue { background: #3498db; }
+  button.blue:hover { background: #2980b9; }
+  table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 13px; }
+  th, td { padding: 8px 10px; border: 1px solid #ddd; text-align: left; }
+  th { background: #ecf0f1; font-weight: 600; font-size: 12px; }
+  tr:nth-child(even) { background: #fafafa; }
+  .total-row { font-weight: 700; background: #e8f5e9 !important; }
+  .warn { color: #e74c3c; font-weight: 600; }
+  .ok { color: #27ae60; font-weight: 600; }
+  .summary-box {
+    margin-top: 15px; padding: 15px; border-radius: 8px;
+    background: #f8f9fa; border-left: 4px solid #3498db;
+  }
+  .summary-box div { margin: 5px 0; }
+  .empty { text-align: center; color: #999; padding: 20px; }
+  .checkbox-cell { text-align: center; }
+  .checkbox-cell input { transform: scale(1.3); cursor: pointer; }
+  .pct-badge {
+    display: inline-block; padding: 2px 8px; border-radius: 12px;
+    background: #e3f2fd; color: #1976d2; font-weight: 600; font-size: 12px;
+  }
+  .pct-high { background: #ffebee; color: #c62828; }
+  .pct-mid { background: #fff3e0; color: #e65100; }
+  .pct-low { background: #e8f5e9; color: #2e7d32; }
+  input[type="number"] { -moz-appearance: textfield; }
+  .note { font-size: 12px; color: #666; margin-top: 8px; }
+  @media print {
+    body { background: #fff; padding: 0; }
+    .tabs, button, .no-print { display: none !important; }
+    .panel { display: block !important; box-shadow: none; padding: 0; }
+    table { font-size: 11px; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>🍲 Bog'cha Ovqatlanish Hisoboti</h1>
+
+  <div class="tabs no-print">
+    <div class="tab active" data-tab="products">📦 Mahsulotlar & Baza</div>
+    <div class="tab" data-tab="report">📊 Yangi hisobot</div>
+    <div class="tab" data-tab="analysis">📈 Tahlil</div>
+  </div>
+
+  <!-- ============ 1-OYNA: Mahsulotlar & Baza ============ -->
+  <div class="panel active" id="panel-products">
+    <h2>Baza ma'lumot (o'tgan oy)</h2>
+    <div class="form-row">
+      <label>O'tgan oy umumiy budjeti:</label>
+      <input type="number" id="baseBudget" placeholder="70200" min="0" step="0.01" value="70200">
+      <button class="blue" onclick="saveBaseBudget()">💾 Saqlash</button>
+    </div>
+    <div class="note">Bu — o'tgan oyda sarflangan umumiy summa. Ulush % shu asosda hisoblanadi.</div>
+
+    <h2 style="margin-top:20px;">Mahsulot qo'shish</h2>
+    <div class="form-row">
+      <input type="text" id="prodName" placeholder="Mahsulot nomi">
+      <input type="number" id="prodPrice" placeholder="Narxi (so'm)" min="0" step="0.01">
+      <input type="number" id="prodBaseSum" placeholder="O'tgan oy summasi" min="0" step="0.01" value="0">
+      <button onclick="addProduct()">➕ Qo'shish</button>
+      <button class="secondary" onclick="loadOctoberBase()">📋 Oktyabr bazasini yuklash</button>
+    </div>
+    <div class="note">"O'tgan oy summasi" — bu mahsulotga o'tgan oyda qancha pul sarflaganingiz. 0 bo'lsa, ulush 0% bo'ladi.</div>
+
+    <table id="productsTable">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Mahsulot</th>
+          <th>Narxi</th>
+          <th>O'tgan oy summasi</th>
+          <th>Ulush %</th>
+          <th style="width:70px;">Amal</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+    <div class="empty" id="prodEmpty">Hozircha mahsulot yo'q. "Oktyabr bazasini yuklash" tugmasini bosing yoki qo'lda qo'shing.</div>
+  </div>
+
+  <!-- ============ 2-OYNA: Yangi hisobot ============ -->
+  <div class="panel" id="panel-report">
+    <h2>Yangi oy uchun hisobot</h2>
+    <div class="form-row">
+      <label>Yangi budjet (so'm):</label>
+      <input type="number" id="newBudget" placeholder="100000" min="0" step="0.01" value="100000">
+      <label>Kunlar soni:</label>
+      <input type="number" id="daysCount" placeholder="30" min="1" max="31" value="30">
+      <button onclick="calculateReport()">🧮 Hisoblash</button>
+      <button class="secondary" onclick="window.print()">🖨️ Chop etish / PDF</button>
+    </div>
+
+    <div id="reportResult"></div>
+  </div>
+
+  <!-- ============ 3-OYNA: Tahlil ============ -->
+  <div class="panel" id="panel-analysis">
+    <h2>O'tgan oy tahlili</h2>
+    <div id="analysisResult"></div>
+  </div>
+</div>
+
+<script>
+// ============ Ma'lumotlar ============
+let products = JSON.parse(localStorage.getItem('bogcha_products') || '[]');
+let baseBudget = parseFloat(localStorage.getItem('bogcha_base_budget') || '70200');
+
+// ============ Tab ============
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById('panel-' + tab.dataset.tab).classList.add('active');
+    if (tab.dataset.tab === 'analysis') renderAnalysis();
+  });
+});
+
+// ============ Baza budjet ============
+function saveBaseBudget() {
+  const v = parseFloat(document.getElementById('baseBudget').value);
+  if (isNaN(v) || v < 0) { alert("To'g'ri summa kiriting"); return; }
+  baseBudget = v;
+  localStorage.setItem('bogcha_base_budget', v);
+  renderProducts();
+  alert("Baza budjet saqlandi: " + formatNum(v) + " so'm");
+}
+
+// ============ Oktyabr bazasi ============
+function loadOctoberBase() {
+  if (!confirm("Oktyabr bazasini yuklaysizmi? Hozirgi mahsulotlar o'chiriladi.")) return;
+
+  const octoberData = [
+    { name: "Un", price: 46, baseSum: 3082 },
+    { name: "Korjik", price: 110, baseSum: 0 },
+    { name: "Makaron", price: 90, baseSum: 0 },
+    { name: "Lapsha", price: 100, baseSum: 1300 },
+    { name: "Pechenye", price: 260, baseSum: 5720 },
+    { name: "Pryannik", price: 110, baseSum: 0 },
+    { name: "Achitqi", price: 50, baseSum: 45 },
+    { name: "Sut frima", price: 155, baseSum: 2170 },
+    { name: "Manna", price: 62, baseSum: 744 },
+    { name: "Shakar", price: 95, baseSum: 2850 },
+    { name: "Tuz", price: 20, baseSum: 130 },
+    { name: "Soda", price: 60, baseSum: 54 },
+    { name: "Ziravor", price: 20, baseSum: 0 },
+    { name: "No'xat", price: 75, baseSum: 0 },
+    { name: "Tomat pastasi", price: 120, baseSum: 180 },
+    { name: "Guruch", price: 110, baseSum: 7700 },
+    { name: "O'simlik yog'i", price: 172, baseSum: 6020 },
+    { name: "Grechka", price: 78, baseSum: 1248 },
+    { name: "Kartoshka", price: 55, baseSum: 1650 },
+    { name: "Sabzi", price: 45, baseSum: 990 },
+    { name: "Piyoz", price: 37, baseSum: 0 },
+    { name: "O'rik", price: 120, baseSum: 240 },
+    { name: "Olma", price: 40, baseSum: 0 },
+    { name: "Olcha", price: 30, baseSum: 0 },
+    { name: "Pelmen", price: 120, baseSum: 0 },
+    { name: "Badiring", price: 40, baseSum: 0 },
+    { name: "Pomidor", price: 60, baseSum: 0 },
+    { name: "Sut", price: 50, baseSum: 9000 },
+    { name: "Go'sht", price: 1000, baseSum: 23000 },
+    { name: "Tuxum", price: 13.5, baseSum: 4077 },
+    { name: "Sariyog'", price: 65, baseSum: 0 },
+    { name: "Tarvuz", price: 35, baseSum: 0 }
+  ];
+
+  products = octoberData.map((p, i) => ({ id: Date.now() + i, ...p }));
+  baseBudget = 70200;
+  localStorage.setItem('bogcha_base_budget', 70200);
+  document.getElementById('baseBudget').value = 70200;
+  saveProducts();
+  renderProducts();
+  alert("Oktyabr bazasi yuklandi! 32 ta mahsulot, jami 70 200 so'm.");
+}
+
+// ============ Mahsulot ============
+function saveProducts() {
+  localStorage.setItem('bogcha_products', JSON.stringify(products));
+}
+
+function addProduct() {
+  const name = document.getElementById('prodName').value.trim();
+  const price = parseFloat(document.getElementById('prodPrice').value);
+  const baseSum = parseFloat(document.getElementById('prodBaseSum').value) || 0;
+  if (!name) { alert('Nom kiriting'); return; }
+  if (isNaN(price) || price < 0) { alert("To'g'ri narx kiriting"); return; }
+  products.push({ id: Date.now(), name, price, baseSum });
+  saveProducts();
+  document.getElementById('prodName').value = '';
+  document.getElementById('prodPrice').value = '';
+  document.getElementById('prodBaseSum').value = '0';
+  renderProducts();
+}
+
+function deleteProduct(id) {
+  if (!confirm("O'chirishni tasdiqlaysizmi?")) return;
+  products = products.filter(p => p.id !== id);
+  saveProducts();
+  renderProducts();
+}
+
+function editBaseSum(id, val) {
+  const p = products.find(x => x.id === id);
+  if (p) { p.baseSum = parseFloat(val) || 0; saveProducts(); }
+}
+
+function renderProducts() {
+  const tbody = document.querySelector('#productsTable tbody');
+  tbody.innerHTML = '';
+  document.getElementById('prodEmpty').style.display = products.length ? 'none' : 'block';
+
+  const totalBase = products.reduce((s, p) => s + (p.baseSum || 0), 0);
+  const denom = baseBudget > 0 ? baseBudget : (totalBase > 0 ? totalBase : 1);
+
+  products.forEach((p, i) => {
+    const pct = denom > 0 ? ((p.baseSum || 0) / denom * 100) : 0;
+    const pctClass = pct >= 10 ? 'pct-high' : (pct >= 3 ? 'pct-mid' : 'pct-low');
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${i + 1}</td>
+      <td>${escapeHtml(p.name)}</td>
+      <td>${formatNum(p.price)}</td>
+      <td><input type="number" value="${p.baseSum || 0}" min="0" step="0.01"
+           style="width:120px;padding:4px;border:1px solid #ccc;border-radius:4px;"
+           onchange="editBaseSum(${p.id}, this.value)"></td>
+      <td><span class="pct-badge ${pctClass}">${pct.toFixed(2)}%</span></td>
+      <td style="text-align:center;">
+        <button class="danger" style="padding:4px 8px;font-size:11px;" onclick="deleteProduct(${p.id})">O'chir</button>
+      </td>`;
+    tbody.appendChild(tr);
+  });
+
+  // Jami qator
+  if (products.length) {
+    const totalPct = baseBudget > 0 ? (totalBase / baseBudget * 100) : 0;
+    const tr = document.createElement('tr');
+    tr.className = 'total-row';
+    tr.innerHTML = `
+      <td colspan="3" style="text-align:right;">JAMI:</td>
+      <td>${formatNum(totalBase)} so'm</td>
+      <td>${totalPct.toFixed(2)}%</td>
+      <td></td>`;
+    tbody.appendChild(tr);
+  }
+}
+
+// ============ Hisobot ============
+function calculateReport() {
+  const newBudget = parseFloat(document.getElementById('newBudget').value);
+  const days = parseInt(document.getElementById('daysCount').value);
+
+  if (isNaN(newBudget) || newBudget <= 0) { alert("Yangi budjetni kiriting"); return; }
+  if (isNaN(days) || days < 1) { alert("Kunlar sonini kiriting"); return; }
+  if (!products.length) { alert("Avval mahsulot qo'shing"); return; }
+
+  const totalBase = products.reduce((s, p) => s + (p.baseSum || 0), 0);
+  if (totalBase <= 0) { alert("O'tgan oy summalari 0. Avval bazani to'ldiring."); return; }
+
+  const denom = baseBudget > 0 ? baseBudget : totalBase;
+
+  const rows = products.map(p => {
+    const pct = (p.baseSum || 0) / denom;
+    const newSum = newBudget * pct;
+    const newQty = p.price > 0 ? newSum / p.price : 0;
+    const dailyQty = days > 0 ? newQty / days : 0;
+    return {
+      name: p.name, price: p.price,
+      baseSum: p.baseSum || 0, pct: pct * 100,
+      newSum, newQty, dailyQty
+    };
+  }).filter(r => r.baseSum > 0); // faqat ishlatilgan mahsulotlar
+
+  const grandTotal = rows.reduce((s, r) => s + r.newSum, 0);
+
+  let html = `<div class="summary-box">
+    <div><b>Yangi budjet:</b> ${formatNum(newBudget)} so'm</div>
+    <div><b>Kunlar soni:</b> ${days} kun</div>
+    <div><b>Hisoblangan jami:</b> <span class="ok">${formatNum(grandTotal)} so'm</span></div>
+    <div><b>Farq:</b> <span class="ok">${formatNum(newBudget - grandTotal)} so'm</span></div>
+    <div style="font-size:12px;color:#666;margin-top:8px;">Baza sifatida ${formatNum(denom)} so'm ishlatildi. Faqat o'tgan oyda ishlatilgan ${rows.length} ta mahsulot hisobga olindi.</div>
+  </div>`;
+
+  html += `<h2>Hisobot jadvali</h2>
+    <table>
+      <thead><tr>
+        <th>#</th><th>Mahsulot</th><th>Narx</th><th>Ulush %</th>
+        <th>Yangi summa</th><th>${days} kun uchun miqdor</th><th>Kunlik miqdor</th>
+      </tr></thead><tbody>`;
+
+  rows.forEach((r, i) => {
+    html += `<tr>
+      <td>${i + 1}</td>
+      <td>${escapeHtml(r.name)}</td>
+      <td>${formatNum(r.price)}</td>
+      <td>${r.pct.toFixed(2)}%</td>
+      <td>${formatNum(r.newSum)}</td>
+      <td>${formatNum(r.newQty)}</td>
+      <td>${formatNum(r.dailyQty)}</td>
+    </tr>`;
+  });
+
+  html += `<tr class="total-row">
+    <td colspan="4" style="text-align:right;">JAMI:</td>
+    <td>${formatNum(grandTotal)} so'm</td>
+    <td colspan="2"></td>
+  </tr></tbody></table>`;
+
+  document.getElementById('reportResult').innerHTML = html;
+}
+
+// ============ Tahlil ============
+function renderAnalysis() {
+  if (!products.length) {
+    document.getElementById('analysisResult').innerHTML = '<div class="empty">Mahsulot yo\'q</div>';
+    return;
+  }
+  const totalBase = products.reduce((s, p) => s + (p.baseSum || 0), 0);
+  const denom = baseBudget > 0 ? baseBudget : totalBase;
+  const sorted = [...products].filter(p => p.baseSum > 0)
+    .sort((a, b) => b.baseSum - a.baseSum);
+
+  let html = `<div class="summary-box">
+    <div><b>Baza budjet:</b> ${formatNum(baseBudget)} so'm</div>
+    <div><b>Haqiqiy sarf:</b> ${formatNum(totalBase)} so'm</div>
+    <div><b>Ishlatilgan mahsulotlar:</b> ${sorted.length} / ${products.length}</div>
+  </div>
+  <h2>Ulush bo'yicha (katta → kichik)</h2>
+  <table><thead><tr>
+    <th>#</th><th>Mahsulot</th><th>Summa</th><th>Ulush %</th><th>Vizual</th>
+  </tr></thead><tbody>`;
+
+  sorted.forEach((p, i) => {
+    const pct = denom > 0 ? (p.baseSum / denom * 100) : 0;
+    const barW = Math.min(pct * 2.5, 100);
+    html += `<tr>
+      <td>${i + 1}</td>
+      <td>${escapeHtml(p.name)}</td>
+      <td>${formatNum(p.baseSum)}</td>
+      <td><b>${pct.toFixed(2)}%</b></td>
+      <td><div style="background:#3498db;height:14px;width:${barW}%;border-radius:3px;"></div></td>
+    </tr>`;
+  });
+  html += '</tbody></table>';
+  document.getElementById('analysisResult').innerHTML = html;
+}
+
+// ============ Yordamchi ============
+function formatNum(n) {
+  if (n === null || n === undefined || isNaN(n)) return '0';
+  return Number(n).toLocaleString('ru-RU', { maximumFractionDigits: 2 });
+}
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+// ============ Boshlash ============
+document.getElementById('baseBudget').value = baseBudget;
+renderProducts();
+</script>
+</body>
+</html>

@@ -4,9 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Bog'cha Ovqatlanish Hisoboti</title>
-<!-- SheetJS: bir nechta CDN zaxira -->
 <script>
-  // CDN yuklash funksiyasi (zaxira bilan)
   (function loadXLSX() {
     const cdns = [
       'https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js',
@@ -15,11 +13,7 @@
     ];
     let idx = 0;
     function tryLoad() {
-      if (idx >= cdns.length) {
-        console.error('XLSX kutubxonasi yuklanmadi! Internetni tekshiring.');
-        window.XLSX_LOAD_ERROR = true;
-        return;
-      }
+      if (idx >= cdns.length) { console.error('XLSX yuklanmadi'); window.XLSX_LOAD_ERROR = true; return; }
       const s = document.createElement('script');
       s.src = cdns[idx];
       s.onload = () => console.log('XLSX yuklandi:', cdns[idx]);
@@ -57,7 +51,6 @@
   th { background: #ecf0f1; font-weight: 600; font-size: 12px; }
   tr:nth-child(even) { background: #fafafa; }
   .total-row { font-weight: 700; background: #e8f5e9 !important; }
-  .warn { color: #e74c3c; font-weight: 600; }
   .ok { color: #27ae60; font-weight: 600; }
   .summary-box { margin-top: 15px; padding: 15px; border-radius: 8px; background: #f8f9fa; border-left: 4px solid #3498db; }
   .summary-box div { margin: 5px 0; }
@@ -68,7 +61,6 @@
   .pct-low { background: #e8f5e9; color: #2e7d32; }
   .note { font-size: 12px; color: #666; margin-top: 8px; }
   .export-box { margin-top: 20px; padding: 20px; background: #fff3e0; border-radius: 8px; border-left: 4px solid #e67e22; }
-  .export-box.error { background: #ffebee; border-left-color: #e74c3c; }
   .status { font-size: 13px; margin-top: 10px; padding: 8px; border-radius: 6px; }
   .status.ok { background: #d4edda; color: #155724; }
   .status.err { background: #f8d7da; color: #721c24; }
@@ -92,7 +84,6 @@
       <input type="number" id="baseBudget" placeholder="70200" min="0" step="0.01" value="70200">
       <button class="blue" onclick="saveBaseBudget()">💾 Saqlash</button>
     </div>
-    <div class="note">Bu — o'tgan oyda sarflangan umumiy summa. Ulush % shu asosda hisoblanadi.</div>
 
     <h2 style="margin-top:20px;">Mahsulot qo'shish</h2>
     <div class="form-row">
@@ -117,11 +108,11 @@
   <div class="panel" id="panel-report">
     <h2>Yangi oy uchun hisobot</h2>
     <div class="form-row">
-      <label>Yangi budjet (so'm):</label>
+      <label>Yangi budjet:</label>
       <input type="number" id="newBudget" placeholder="100000" min="0" step="0.01" value="100000">
-      <label>Kunlar soni:</label>
+      <label>Kunlar:</label>
       <input type="number" id="daysCount" placeholder="30" min="1" max="31" value="30">
-      <label>Oy nomi:</label>
+      <label>Oy:</label>
       <input type="text" id="monthName" placeholder="ноябрь" value="ноябрь" style="width:110px;">
       <label>Yil:</label>
       <input type="text" id="yearName" placeholder="2026" value="2026" style="width:80px;">
@@ -132,7 +123,6 @@
 
     <div id="exportBox" class="export-box no-print" style="display:none;">
       <h2>📥 Excel faylni yuklab olish</h2>
-      <div class="note" style="margin-bottom:10px;">Fayl tuzilishi: "матер-й", "накладной", "накапит" varaqlari bilan.</div>
       <button class="orange" id="downloadBtn" onclick="exportToExcel()">⬇️ .xlsx faylni yuklab olish</button>
       <div id="statusMsg" class="status" style="display:none;"></div>
     </div>
@@ -145,7 +135,6 @@ let products = JSON.parse(localStorage.getItem('bogcha_products') || '[]');
 let baseBudget = parseFloat(localStorage.getItem('bogcha_base_budget') || '70200');
 let lastReport = null;
 
-// ============ Tab ============
 document.querySelectorAll('.tab').forEach(tab => {
   tab.addEventListener('click', () => {
     document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
@@ -155,13 +144,44 @@ document.querySelectorAll('.tab').forEach(tab => {
   });
 });
 
-// ============ Status xabar ============
 function showStatus(msg, type) {
   const el = document.getElementById('statusMsg');
   el.textContent = msg;
   el.className = 'status ' + (type === 'ok' ? 'ok' : 'err');
   el.style.display = 'block';
   if (type === 'ok') setTimeout(() => { el.style.display = 'none'; }, 5000);
+}
+
+// ============ YAXLITLASH ============
+// Pul — butun son
+function roundMoney(n) { return Math.round(n || 0); }
+// Miqdor — qoidaga ko'ra
+function roundQty(n) {
+  n = Number(n) || 0;
+  if (n === 0) return 0;
+  if (Math.abs(n) < 1) return Math.round(n * 100) / 100;      // 0.90
+  if (Math.abs(n) < 100) return Math.round(n * 10) / 10;      // 6.5
+  return Math.round(n);                                        // 431
+}
+// Ko'rsatish uchun formatlash (o'zbekcha: probel + vergul)
+function fmt(n, isMoney) {
+  if (n === null || n === undefined || isNaN(n)) return '0';
+  n = Number(n);
+  if (isMoney) {
+    const v = Math.round(n);
+    return v.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+  }
+  // kasr qismi
+  let s;
+  if (Math.abs(n) < 1) s = n.toFixed(2);
+  else if (Math.abs(n) < 100) s = n.toFixed(1);
+  else s = n.toFixed(0);
+  // ortiqcha 0 larni olib tashlash
+  s = s.replace(/\.?0+$/, '');
+  // butun qismga probel
+  const parts = s.split('.');
+  parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+  return parts.join(',');
 }
 
 // ============ Baza ============
@@ -171,11 +191,11 @@ function saveBaseBudget() {
   baseBudget = v;
   localStorage.setItem('bogcha_base_budget', v);
   renderProducts();
-  alert("Saqlandi: " + formatNum(v) + " so'm");
+  alert("Saqlandi: " + fmt(v, true) + " so'm");
 }
 
 function loadOctoberBase() {
-  if (!confirm("Oktyabr bazasini yuklaysizmi? Hozirgi mahsulotlar o'chiriladi.")) return;
+  if (!confirm("Oktyabr bazasini yuklaysizmi?")) return;
   const octoberData = [
     { name: "Ун", price: 46, baseSum: 3082, unit: "кг" },
     { name: "Коржик", price: 110, baseSum: 0, unit: "кг" },
@@ -263,11 +283,11 @@ function renderProducts() {
       <td>${i + 1}</td>
       <td>${escapeHtml(p.name)}</td>
       <td>${escapeHtml(p.unit || 'кг')}</td>
-      <td>${formatNum(p.price)}</td>
+      <td>${fmt(p.price, true)}</td>
       <td><input type="number" value="${p.baseSum || 0}" min="0" step="0.01"
            style="width:120px;padding:4px;border:1px solid #ccc;border-radius:4px;"
            onchange="editBaseSum(${p.id}, this.value)"></td>
-      <td><span class="pct-badge ${pctClass}">${pct.toFixed(2)}%</span></td>
+      <td><span class="pct-badge ${pctClass}">${pct.toFixed(1)}%</span></td>
       <td style="text-align:center;">
         <button class="danger" style="padding:4px 8px;font-size:11px;" onclick="deleteProduct(${p.id})">O'chir</button>
       </td>`;
@@ -279,7 +299,7 @@ function renderProducts() {
     const tr = document.createElement('tr');
     tr.className = 'total-row';
     tr.innerHTML = `<td colspan="4" style="text-align:right;">JAMI:</td>
-      <td>${formatNum(totalBase)} so'm</td><td>${totalPct.toFixed(2)}%</td><td></td>`;
+      <td>${fmt(totalBase, true)} so'm</td><td>${totalPct.toFixed(1)}%</td><td></td>`;
     tbody.appendChild(tr);
   }
 }
@@ -296,87 +316,96 @@ function calculateReport() {
   if (totalBase <= 0) { alert("Baza summalari 0"); return; }
   const denom = baseBudget > 0 ? baseBudget : totalBase;
 
-  const rows = products.map(p => {
+  // 1-bosqich: xom hisoblash
+  let raw = products.map(p => {
     const pct = (p.baseSum || 0) / denom;
-    const newSum = newBudget * pct;
-    const newQty = p.price > 0 ? newSum / p.price : 0;
-    const dailyQty = days > 0 ? newQty / days : 0;
+    const newSumRaw = newBudget * pct;
     return {
       id: p.id, name: p.name, unit: p.unit || 'кг', price: p.price,
       baseSum: p.baseSum || 0, pct: pct * 100,
-      newSum, newQty, dailyQty
+      newSumRaw,
+      newQtyRaw: p.price > 0 ? newSumRaw / p.price : 0
     };
   }).filter(r => r.baseSum > 0);
 
-  const grandTotal = rows.reduce((s, r) => s + r.newSum, 0);
+  // 2-bosqich: yaxlitlash
+  raw.forEach(r => {
+    r.newSum = roundMoney(r.newSumRaw);
+    r.newQty = roundQty(r.newQtyRaw);
+    r.dailyQty = roundQty(r.newQty / days);
+  });
+
+  // 3-bosqich: yakuniy summani budjetga moslash (yaxlitlash xatosini tuzatish)
+  let grandTotal = raw.reduce((s, r) => s + r.newSum, 0);
+  let diff = roundMoney(newBudget) - grandTotal;
+  if (diff !== 0 && raw.length > 0) {
+    // Eng katta ulushli mahsulotga qo'shamiz/ayiramiz
+    const biggest = raw.reduce((a, b) => a.newSum > b.newSum ? a : b);
+    biggest.newSum += diff;
+    if (biggest.price > 0) {
+      biggest.newQty = roundQty(biggest.newSum / biggest.price);
+      biggest.dailyQty = roundQty(biggest.newQty / days);
+    }
+    grandTotal = raw.reduce((s, r) => s + r.newSum, 0);
+  }
 
   lastReport = {
-    newBudget, days, rows, grandTotal,
+    newBudget: roundMoney(newBudget),
+    days, rows: raw, grandTotal,
     month: document.getElementById('monthName').value || 'ноябрь',
     year: document.getElementById('yearName').value || '2026',
     baseBudget: denom
   };
 
+  // Ekranda ko'rsatish
   let html = `<div class="summary-box">
-    <div><b>Yangi budjet:</b> ${formatNum(newBudget)} so'm</div>
-    <div><b>Kunlar soni:</b> ${days} kun</div>
-    <div><b>Hisoblangan:</b> <span class="ok">${formatNum(grandTotal)} so'm</span></div>
-    <div><b>Farq:</b> <span class="ok">${formatNum(newBudget - grandTotal)} so'm</span></div>
+    <div><b>Yangi budjet:</b> ${fmt(newBudget, true)} so'm</div>
+    <div><b>Kunlar:</b> ${days}</div>
+    <div><b>Hisoblangan:</b> <span class="ok">${fmt(grandTotal, true)} so'm</span></div>
+    <div><b>Farq:</b> <span class="ok">${fmt(newBudget - grandTotal, true)} so'm</span></div>
   </div>
   <h2>Hisobot</h2>
   <table><thead><tr>
     <th>#</th><th>Mahsulot</th><th>O'lchov</th><th>Narx</th><th>Ulush %</th>
-    <th>Yangi summa</th><th>Miqdor</th><th>Kunlik</th>
+    <th>Summa</th><th>Miqdor</th><th>Kunlik</th>
   </tr></thead><tbody>`;
 
-  rows.forEach((r, i) => {
+  raw.forEach((r, i) => {
     html += `<tr>
       <td>${i + 1}</td><td>${escapeHtml(r.name)}</td><td>${escapeHtml(r.unit)}</td>
-      <td>${formatNum(r.price)}</td><td>${r.pct.toFixed(2)}%</td>
-      <td>${formatNum(r.newSum)}</td><td>${formatNum(r.newQty)}</td><td>${formatNum(r.dailyQty)}</td>
+      <td>${fmt(r.price, true)}</td><td>${r.pct.toFixed(1)}%</td>
+      <td>${fmt(r.newSum, true)}</td><td>${fmt(r.newQty, false)}</td><td>${fmt(r.dailyQty, false)}</td>
     </tr>`;
   });
   html += `<tr class="total-row"><td colspan="5" style="text-align:right;">JAMI:</td>
-    <td>${formatNum(grandTotal)}</td><td colspan="2"></td></tr></tbody></table>`;
+    <td>${fmt(grandTotal, true)}</td><td colspan="2"></td></tr></tbody></table>`;
 
   document.getElementById('reportResult').innerHTML = html;
   document.getElementById('exportBox').style.display = 'block';
   document.getElementById('statusMsg').style.display = 'none';
-
-  // XLSX holatini tekshirish
-  if (window.XLSX_LOAD_ERROR) {
-    showStatus("⚠️ Excel kutubxonasi yuklanmadi. Internetni tekshiring va sahifani yangilang.", 'err');
-  }
 }
 
-// ============ EXCEL EXPORT ============
+// ============ EXCEL EXPORT (formatlash bilan) ============
 function exportToExcel() {
-  // 1. Tekshiruv: hisobot bormi
-  if (!lastReport) {
-    showStatus("⚠️ Avval 'Hisoblash' tugmasini bosing!", 'err');
-    return;
-  }
-
-  // 2. Tekshiruv: XLSX yuklanganmi
+  if (!lastReport) { showStatus("⚠️ Avval 'Hisoblash' tugmasini bosing!", 'err'); return; }
   if (typeof XLSX === 'undefined') {
-    showStatus("⚠️ Excel kutubxonasi yuklanmagan. Internetni tekshirib, sahifani yangilang (Ctrl+F5).", 'err');
-    console.error('XLSX undefined. CDN yuklanmagan.');
+    showStatus("⚠️ Excel kutubxonasi yuklanmagan. Sahifani yangilang (Ctrl+F5).", 'err');
     return;
   }
 
-  // 3. Tugmani bloklash
   const btn = document.getElementById('downloadBtn');
   btn.disabled = true;
   btn.textContent = '⏳ Tayyorlanmoqda...';
   showStatus("Fayl tayyorlanmoqda...", 'ok');
 
-  // 4. Kichik kechikish (UI yangilanishi uchun)
   setTimeout(() => {
     try {
       const wb = XLSX.utils.book_new();
       const { rows, newBudget, days, grandTotal, month, year } = lastReport;
 
-      // ========== 1. МАТЕР-Й ==========
+      // ==================================================
+      // 1. МАТЕР-Й
+      // ==================================================
       const matData = [];
       matData.push(["Отчет  утверждаю"]);
       matData.push([]);
@@ -396,38 +425,103 @@ function exportToExcel() {
       for (let i = 1; i <= 6; i++) {
         matData.push([i, "", "кг", 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
       }
-      matData.push(["", "ИТОГО", "", "", "", 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+      matData.push(["", "ИТОГО", "", "", 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
       matData.push([]);
       matData.push(["", "Спец сред"]);
 
       let specTotal = 0;
+      let totalQty = 0;
+      const specStartRow = matData.length + 1; // Excel qatori (1-based)
       rows.forEach((r, i) => {
         specTotal += r.newSum;
+        totalQty += r.newQty;
         matData.push([
-          i + 1, r.name, r.unit, r.price,
-          0, 0,
-          0, 0,
+          i + 1, r.name, r.unit, roundMoney(r.price),
+          0, 0, 0, 0,
           r.newQty, r.newSum,
           0, 0,
           r.newQty, r.newSum,
           0, 0
         ]);
       });
-      const totalQty = rows.reduce((s, r) => s + r.newQty, 0);
-      matData.push(["", "ИТОГО", "", "", 0, 0, 0, 0, totalQty, specTotal, 0, 0, totalQty, specTotal, 0, 0]);
-      matData.push(["", "ВСЕГО", "", "", 0, 0, 0, 0, totalQty, specTotal, 0, 0, totalQty, specTotal, 0, 0]);
+      const specEndRow = matData.length;
+      matData.push(["", "ИТОГО", "", "", 0, 0, 0, 0, roundQty(totalQty), specTotal, 0, 0, roundQty(totalQty), specTotal, 0, 0]);
+      matData.push(["", "ВСЕГО", "", "", 0, 0, 0, 0, roundQty(totalQty), specTotal, 0, 0, roundQty(totalQty), specTotal, 0, 0]);
       matData.push([]);
       matData.push(["", "Зав  детсад:________________"]);
       matData.push(["", "Медсестра:________________"]);
 
       const ws1 = XLSX.utils.aoa_to_sheet(matData);
+
+      // Ustun kengliklari
       ws1['!cols'] = [
-        {wch:5}, {wch:20}, {wch:6}, {wch:8}, {wch:8}, {wch:9}, {wch:8}, {wch:9},
+        {wch:5}, {wch:22}, {wch:6}, {wch:8}, {wch:8}, {wch:9}, {wch:8}, {wch:9},
         {wch:8}, {wch:9}, {wch:8}, {wch:9}, {wch:8}, {wch:9}, {wch:8}, {wch:9}
       ];
+
+      // Birlashtirilgan kataklar
+      ws1['!merges'] = [
+        { s: {r:0, c:0}, e: {r:0, c:15} },   // Отчет утверждаю
+        { s: {r:2, c:0}, e: {r:2, c:15} },   // Заведующий
+        { s: {r:3, c:0}, e: {r:3, c:15} },   // Садыков
+        { s: {r:4, c:0}, e: {r:4, c:15} },   // Sarlavha
+        { s: {r:10, c:0}, e: {r:11, c:0} },  // Наименование товара (2 qator)
+        { s: {r:10, c:1}, e: {r:11, c:2} },  // bo'sh
+        { s: {r:10, c:3}, e: {r:10, c:4} },  // Остаток на
+        { s: {r:10, c:5}, e: {r:10, c:6} },  // ПРИХОД
+        { s: {r:10, c:7}, e: {r:10, c:8} },  // ПРИХОД
+        { s: {r:10, c:9}, e: {r:10, c:10} }, // БЮДЖ0Т РАСХОД
+        { s: {r:10, c:11}, e: {r:10, c:12} },// РАСХОД
+        { s: {r:10, c:13}, e: {r:10, c:14} },// Остаток на
+        { s: {r:11, c:4}, e: {r:11, c:5} },  // Кол-во/Сумма
+        { s: {r:11, c:6}, e: {r:11, c:7} },
+        { s: {r:11, c:8}, e: {r:11, c:9} },
+        { s: {r:11, c:10}, e: {r:11, c:11} },
+        { s: {r:11, c:12}, e: {r:11, c:13} },
+        { s: {r:11, c:14}, e: {r:11, c:15} }
+      ];
+
+      // Hujayra formatlash
+      const range1 = XLSX.utils.decode_range(ws1['!ref']);
+      for (let R = range1.s.r; R <= range1.e.r; R++) {
+        for (let C = range1.s.c; C <= range1.e.c; C++) {
+          const addr = XLSX.utils.encode_cell({r: R, c: C});
+          if (!ws1[addr]) ws1[addr] = { t: 's', v: '' };
+          const cell = ws1[addr];
+          // Border
+          cell.s = cell.s || {};
+          cell.s.border = {
+            top: {style: 'thin', color: {rgb: '000000'}},
+            bottom: {style: 'thin', color: {rgb: '000000'}},
+            left: {style: 'thin', color: {rgb: '000000'}},
+            right: {style: 'thin', color: {rgb: '000000'}}
+          };
+          cell.s.alignment = { vertical: 'center', horizontal: 'center', wrapText: true };
+
+          // Sarlavha qatorlari — qalin
+          if (R === 0 || R === 2 || R === 3 || R === 4 || R === 10 || R === 11 || R === 12) {
+            cell.s.font = { bold: true, sz: 11 };
+          }
+          // Sonlar — o'ngga
+          if (R >= 13 && C >= 3 && cell.t === 'n') {
+            cell.s.alignment = { vertical: 'center', horizontal: 'right' };
+          }
+          // Pul formati
+          if (R >= 13 && (C === 5 || C === 7 || C === 9 || C === 11 || C === 13 || C === 15) && cell.t === 'n') {
+            cell.z = '#,##0';
+          }
+          // Miqdor formati
+          if (R >= 13 && (C === 4 || C === 6 || C === 8 || C === 10 || C === 12 || C === 14) && cell.t === 'n') {
+            cell.z = '#,##0.##';
+          }
+        }
+      }
+
       XLSX.utils.book_append_sheet(wb, ws1, "матер-й");
 
-      // ========== 2. НАКЛАДНОЙ ==========
+      // ==================================================
+      // 2. НАКЛАДНОЙ
+      // ==================================================
       const nakData = [];
       for (let i = 0; i < 6; i++) nakData.push(["", "", "", "", "", "", ""]);
       nakData.push(["", "Отправитель    ЧП Исаев Раимберди", "", "", "", "", ""]);
@@ -442,17 +536,57 @@ function exportToExcel() {
       let nakTotal = 0;
       rows.forEach((r, i) => {
         nakTotal += r.newSum;
-        nakData.push(["", i + 1, r.name, r.unit, r.newQty, r.price, r.newSum]);
+        nakData.push(["", i + 1, r.name, r.unit, r.newQty, roundMoney(r.price), r.newSum]);
       });
       nakData.push(["", "Итого", "", "", "", "", nakTotal]);
       nakData.push([]);
       nakData.push(["", "", "Отпустил ________________________", "", "Принял _________________________", "", ""]);
 
       const ws2 = XLSX.utils.aoa_to_sheet(nakData);
-      ws2['!cols'] = [{wch:3}, {wch:18}, {wch:25}, {wch:10}, {wch:10}, {wch:10}, {wch:12}];
+      ws2['!cols'] = [{wch:3}, {wch:18}, {wch:28}, {wch:10}, {wch:10}, {wch:12}, {wch:12}];
+
+      ws2['!merges'] = [
+        { s: {r:6, c:1}, e: {r:6, c:6} },
+        { s: {r:7, c:1}, e: {r:7, c:6} },
+        { s: {r:8, c:1}, e: {r:8, c:6} },
+        { s: {r:9, c:1}, e: {r:9, c:6} },
+        { s: {r:10, c:1}, e: {r:10, c:6} },
+        { s: {r:11, c:1}, e: {r:11, c:6} },
+        { s: {r:12, c:4}, e: {r:12, c:5} },
+        { s: {r:13, c:4}, e: {r:13, c:5} }
+      ];
+
+      const range2 = XLSX.utils.decode_range(ws2['!ref']);
+      for (let R = range2.s.r; R <= range2.e.r; R++) {
+        for (let C = range2.s.c; C <= range2.e.c; C++) {
+          const addr = XLSX.utils.encode_cell({r: R, c: C});
+          if (!ws2[addr]) ws2[addr] = { t: 's', v: '' };
+          const cell = ws2[addr];
+          cell.s = cell.s || {};
+          cell.s.border = {
+            top: {style: 'thin', color: {rgb: '000000'}},
+            bottom: {style: 'thin', color: {rgb: '000000'}},
+            left: {style: 'thin', color: {rgb: '000000'}},
+            right: {style: 'thin', color: {rgb: '000000'}}
+          };
+          cell.s.alignment = { vertical: 'center', horizontal: 'center', wrapText: true };
+          if (R === 12 || R === 13) cell.s.font = { bold: true, sz: 11 };
+          if (R >= 14 && R < 14 + rows.length + 1) {
+            if (C >= 4 && cell.t === 'n') {
+              cell.s.alignment = { vertical: 'center', horizontal: 'right' };
+            }
+            if (C === 6 && cell.t === 'n') cell.z = '#,##0';
+            if (C === 5 && cell.t === 'n') cell.z = '#,##0';
+            if (C === 4 && cell.t === 'n') cell.z = '#,##0.##';
+          }
+        }
+      }
+
       XLSX.utils.book_append_sheet(wb, ws2, "накладной");
 
-      // ========== 3. НАКАПИТ ==========
+      // ==================================================
+      // 3. НАКАПИТ
+      // ==================================================
       const nakapData = [];
       nakapData.push(["«ТЫНЧТЫК »МЧББМ", "Кыялкеч", "", "", "", "", "", month, "", "", "", year + "-жыл"]);
       nakapData.push([]);
@@ -463,11 +597,11 @@ function exportToExcel() {
       nakapData.push(["", "Бюджет сред", "", "", ...Array(days).fill(0), 0, 0]);
 
       rows.forEach((r, i) => {
-        const dailyRow = [i + 1, r.name, r.unit, r.price];
+        const dailyRow = [i + 1, r.name, r.unit, roundMoney(r.price)];
         for (let d = 0; d < days; d++) {
-          dailyRow.push(Number(r.dailyQty.toFixed(3)));
+          dailyRow.push(r.dailyQty);
         }
-        dailyRow.push(Number(r.newQty.toFixed(3)));
+        dailyRow.push(r.newQty);
         dailyRow.push(r.newSum);
         nakapData.push(dailyRow);
       });
@@ -475,15 +609,47 @@ function exportToExcel() {
       nakapData.push(["", "всего", "", "", ...Array(days).fill(""), "", grandTotal]);
 
       const ws3 = XLSX.utils.aoa_to_sheet(nakapData);
-      const cols3 = [{wch:5}, {wch:20}, {wch:7}, {wch:8}];
-      for (let i = 0; i < days; i++) cols3.push({wch:6});
-      cols3.push({wch:8}, {wch:10});
+      const cols3 = [{wch:5}, {wch:22}, {wch:7}, {wch:8}];
+      for (let i = 0; i < days; i++) cols3.push({wch:7});
+      cols3.push({wch:8}, {wch:11});
       ws3['!cols'] = cols3;
+
+      ws3['!merges'] = [
+        { s: {r:0, c:0}, e: {r:0, c:2} },
+        { s: {r:0, c:6}, e: {r:0, c:7} },
+        { s: {r:0, c:8}, e: {r:0, c:9} },
+        { s: {r:0, c:10}, e: {r:0, c:11} }
+      ];
+
+      const range3 = XLSX.utils.decode_range(ws3['!ref']);
+      for (let R = range3.s.r; R <= range3.e.r; R++) {
+        for (let C = range3.s.c; C <= range3.e.c; C++) {
+          const addr = XLSX.utils.encode_cell({r: R, c: C});
+          if (!ws3[addr]) ws3[addr] = { t: 's', v: '' };
+          const cell = ws3[addr];
+          cell.s = cell.s || {};
+          cell.s.border = {
+            top: {style: 'thin', color: {rgb: '000000'}},
+            bottom: {style: 'thin', color: {rgb: '000000'}},
+            left: {style: 'thin', color: {rgb: '000000'}},
+            right: {style: 'thin', color: {rgb: '000000'}}
+          };
+          cell.s.alignment = { vertical: 'center', horizontal: 'center', wrapText: true };
+          if (R === 0 || R === 2 || R === 3) cell.s.font = { bold: true, sz: 11 };
+          if (R >= 4 && cell.t === 'n') {
+            if (C === 3 || C >= 4 + days) {
+              cell.s.alignment = { vertical: 'center', horizontal: 'right' };
+            }
+            if (C === 3 || C === 4 + days + 1) cell.z = '#,##0';
+            else if (C >= 4 && C < 4 + days) cell.z = '#,##0.##';
+          }
+        }
+      }
+
       XLSX.utils.book_append_sheet(wb, ws3, "накапит");
 
-      // ========== Yuklab olish ==========
       const fname = `Otchet_pitania_${month}_${year}.xlsx`;
-      XLSX.writeFile(wb, fname);
+      XLSX.writeFile(wb, fname, { bookSST: false, cellStyles: true });
       showStatus("✅ Fayl yuklab olindi: " + fname, 'ok');
     } catch (err) {
       console.error('Export xatosi:', err);
@@ -496,15 +662,10 @@ function exportToExcel() {
 }
 
 // ============ Yordamchi ============
-function formatNum(n) {
-  if (n === null || n === undefined || isNaN(n)) return '0';
-  return Number(n).toLocaleString('ru-RU', { maximumFractionDigits: 2 });
-}
 function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 
-// ============ Boshlash ============
 document.getElementById('baseBudget').value = baseBudget;
 renderProducts();
 </script>
